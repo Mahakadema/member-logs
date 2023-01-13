@@ -1,17 +1,14 @@
 {
   "name": "member-logs",
   "version": "1.0.0",
+  "type": "module",
   "description": "A discord bot sending messages on member join/leave containing the member roles",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "scripts": {},
   "keywords": [
-    "discord",
-    "bot",
+    "discord-bot",
     "logs",
-    "member",
-    "roles"
+    "member-roles"
   ],
   "author": "mahakadema",
   "license": "MIT",

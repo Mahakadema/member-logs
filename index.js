@@ -53,6 +53,7 @@ client.on("ready", async client => {
     if (client.guilds.cache.size > 1)
         throw new Error("The bot cannot be in more than 1 guild");
     await client.guilds.cache.first().members.list({ limit: 1000 });
+    console.log(`Fetched ${client.users.cache.size} users`);
 });
 
 client.on("guildMemberAdd", member => {
@@ -68,18 +69,22 @@ client.on("guildMemberRemove", member => {
 await client.login(config.token);
 
 async function sendMessage(type, member) {
-    const channel = client.channels.cache.get(config.channelId);
-    const embed = type === "JOIN" ? joinMessage(member) : leaveMessage(member);
-    for (let i = 0; i < 5; i++) {
-        try {
-            await channel.send({
-                content: "",
-                embeds: [embed]
-            });
-            break;
-        } catch (e) {
-            console.error(`Failed to send message to ${config.channelId}:`, e);
+    try {
+        const channel = client.channels.cache.get(config.channelId);
+        const embed = type === "JOIN" ? joinMessage(member) : leaveMessage(member);
+        for (let i = 0; i < 5; i++) {
+            try {
+                await channel.send({
+                    content: "",
+                    embeds: [embed]
+                });
+                break;
+            } catch (e) {
+                console.error(`Failed to send message to ${config.channelId}:`, e);
+            }
         }
+    } catch (e) {
+        console.error("Couldn't handle event:", e);
     }
 }
 
@@ -115,6 +120,7 @@ function leaveMessage(member) {
         .setColor("#7a0505")
         .setDescription(
             `<@${member.id}> ${member.user?.tag || "Unknown User"}\n` +
+            (member.nickname ? `Nick: ${member.nickname}\n` : "") +
             `ID: ${member.id}`
         )
         .setTimestamp(Date.now());
@@ -124,12 +130,26 @@ function leaveMessage(member) {
             value: `${formatDuration(Date.now() - member.joinedTimestamp, 2)} ago`,
             inline: false
         });
-    if (member.roles?.cache)
+    if (member.roles?.cache) {
+        const roles = member.roles.cache.filter(v => v.id !== member.guild?.id).map(v => v.toString());
+        let rolesString = roles.join(" ");
+        if (rolesString.length >= 1024) {
+            rolesString = roles[0];
+            for (let i = 1; i < roles.length; i++) {
+                const endString = `and ${roles.length - i} more...`;
+                if (`${rolesString} ${roles[i]} ${endString}`.length >= 1024) {
+                    rolesString += " " + endString;
+                    break;
+                }
+                rolesString += " " + roles[i];
+            }
+        }
         embed.addFields({
             name: "Roles",
-            value: member.roles.cache.filter(v => v.id !== member.guild?.id).map(v => v.toString()).join(" "),
+            value: rolesString || "No Roles",
             inline: false
         });
+    }
     if (member.user?.avatarURL)
         embed.setThumbnail(member.user.avatarURL());
     return embed;

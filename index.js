@@ -3,13 +3,17 @@ import { Client, IntentsBitField, Partials, EmbedBuilder } from "discord.js";
 import { readFileSync } from "fs";
 
 const DISCORD_EPOCH = 1420070400000;
+const logger = {
+    info: (...msgs) => console.log(new Date().toISOString().replace(/[TZ]/g, " ").trimEnd(), ...msgs),
+    error: (...msgs) => console.log(new Date().toISOString().replace(/[TZ]/g, " ").trimEnd(), ...msgs)
+}
 
-console.log("Loading config");
+logger.info("Loading config");
 const config = {};
 const validSettings = {
     token: {
         name: "token",
-        validator: v => true,
+        validator: _ => true,
         transformer: v => v
     },
     channel_ID: {
@@ -31,7 +35,7 @@ for (const l of lines) {
     config[validSettings[key].name] = validSettings[key].transformer(value);
 }
 
-console.log("Initializing client");
+logger.info("Initializing client");
 const client = new Client({
     intents: [
         IntentsBitField.Flags.Guilds,
@@ -49,24 +53,30 @@ const client = new Client({
 });
 
 client.on("ready", async client => {
-    console.log(`Logged in as ${client.user.tag}`);
+    logger.info(`Logged in as ${client.user.tag}`);
     if (client.guilds.cache.size > 1)
         throw new Error("The bot cannot be in more than 1 guild");
-    await client.guilds.cache.first().members.list({ limit: 1000 });
-    console.log(`Fetched ${client.users.cache.size} users`);
+    await fetchMembers();
+    setInterval(() => fetchMembers().catch(e => logger.error("Failed to fetch members:", e)), 86_400_000);
 });
 
 client.on("guildMemberAdd", member => {
-    console.log(`Member ${member.user?.tag || member.id} has joined`);
+    logger.info(`Member ${member.user?.tag || member.id} has joined`);
     sendMessage("JOIN", member);
 });
 
 client.on("guildMemberRemove", member => {
-    console.log(`Member ${member.user?.tag || member.id} has left`);
+    logger.info(`Member ${member.user?.tag || member.id} has left`);
     sendMessage("LEAVE", member);
 });
 
 await client.login(config.token);
+
+async function fetchMembers() {
+    const preFetchSize = client.users.cache.size;
+    await client.guilds.cache.first().members.fetch();
+    logger.info(`Fetched ${client.users.cache.size - preFetchSize} users`);
+}
 
 async function sendMessage(type, member) {
     try {
@@ -80,11 +90,11 @@ async function sendMessage(type, member) {
                 });
                 break;
             } catch (e) {
-                console.error(`Failed to send message to ${config.channelId}:`, e);
+                logger.error(`Failed to send message to ${config.channelId}:`, e);
             }
         }
     } catch (e) {
-        console.error("Couldn't handle event:", e);
+        logger.error("Couldn't handle event:", e);
     }
 }
 
